@@ -1,0 +1,10 @@
+pandas
+tabulate
+chromadb
+openpyxl
+streamlit
+langchain
+python_dotenv
+langchain_openai
+langchain_experimental
+langchain_text_splitters
