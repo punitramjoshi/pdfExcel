@@ -1,3 +1,4 @@
+pypdf
 pandas
 PyPDF2
 tabulate
