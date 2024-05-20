@@ -12,7 +12,7 @@ from langchain.schema import StrOutputParser
 class RAG:
     def __init__(self, user_id, file_path: str, api_key:str) -> None:
         self.llm = ChatOpenAI(model="gpt-3.5-turbo", api_key=api_key)
-        self.docloader = DocLoader(user_id=user_id, file_path=file_path)
+        self.docloader = DocLoader(user_id=user_id, file_path=file_path, api_key=api_key)
         self.vectorsearch, self.retriever = self.docloader()
         self.prompt = hub.pull("rlm/rag-prompt")
         self.parser = StrOutputParser()

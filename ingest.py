@@ -7,11 +7,11 @@ import os
 
 
 class DocLoader:
-    def __init__(self, user_id, file_path: str, persist_dir="./chromadb") -> None:
+    def __init__(self, user_id, api_key:str, file_path: str, persist_dir="./chromadb") -> None:
         self.user_id = user_id
         self.file_path = file_path
         # self.file_dir = os.path.join(data_dir, self.user_id)
-        self.embeddings = OpenAIEmbeddings()
+        self.embeddings = OpenAIEmbeddings(api_key=api_key)
         self.text_splitter = RecursiveCharacterTextSplitter(
             chunk_size=1000,
             chunk_overlap=500,
