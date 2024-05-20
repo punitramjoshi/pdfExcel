@@ -7,7 +7,7 @@ import pandas as pd
 load_dotenv()
 
 st.title("Chatbot with Document Upload and Retrieval")
-
+api_key = st.text_input("OpenAI API Key:-", key="api_key")
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
@@ -17,7 +17,7 @@ uploaded_file = st.file_uploader(
     "Upload an Excel/PDF file", type=["xlsx", "xls", "pdf"]
 )
 
-if uploaded_file:
+if uploaded_file and api_key:
     file_details = {"filetype": uploaded_file.type}
 
     try:
@@ -34,7 +34,9 @@ if uploaded_file:
             with open("uploaded_file.pdf", "wb") as f:
                 f.write(uploaded_file.getbuffer())
 
-            rag_chain = RAG(user_id=user_id, file_path="uploaded_file.pdf")
+            rag_chain = RAG(
+                user_id=user_id, file_path="uploaded_file.pdf", api_key=api_key
+            )
             delete_button = st.button("Delete Database (if existing)")
 
             for message in st.session_state.messages:
@@ -71,7 +73,7 @@ if uploaded_file:
         if query:
 
             # Process the uploaded file and query
-            output = excel_invoke(df, query)
+            output = excel_invoke(df, query, api_key=api_key)
 
             # Display the result
             st.write("Query Result:")
