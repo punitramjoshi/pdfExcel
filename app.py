@@ -50,6 +50,7 @@ if uploaded_file and api_key:
             
             if clear_chat_history:
                 chat_history = []
+                st.session_state.messages = []
 
             if prompt := st.chat_input("What is up?"):
                 st.session_state.messages.append({"role": "user", "content": prompt})
