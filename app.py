@@ -43,6 +43,7 @@ if uploaded_file and api_key:
                 with st.chat_message(message["role"]):
                     st.markdown(message["content"])
 
+            chat_history = []
             if delete_button:
                 rag_chain.delete_db()
                 st.success("Database entries deleted for user ID: " + user_id)
@@ -53,7 +54,7 @@ if uploaded_file and api_key:
                     st.markdown(prompt)
 
                 with st.chat_message("assistant"):
-                    answer = rag_chain.invoke(st.session_state.messages[-1]["content"])
+                    answer = rag_chain.generate_response(openai_api_key=api_key,query_text=st.session_state.messages[-1]["content"], chat_history=chat_history)
                     st.markdown(answer)
                     st.session_state.messages.append(
                         {"role": "assistant", "content": answer}

@@ -7,7 +7,9 @@ import os
 
 
 class DocLoader:
-    def __init__(self, user_id, api_key:str, file_path: str, persist_dir="./chromadb") -> None:
+    def __init__(
+        self, user_id, api_key: str, file_path: str, persist_dir="./chromadb"
+    ) -> None:
         self.user_id = user_id
         self.file_path = file_path
         # self.file_dir = os.path.join(data_dir, self.user_id)
@@ -22,7 +24,7 @@ class DocLoader:
                 ".",
                 ",",
                 "",
-            ],
+            ]
         )
         try:
             if os.path.exists(persist_dir):
@@ -66,4 +68,4 @@ class DocLoader:
             search_type="similarity_score_threshold",
             search_kwargs={"score_threshold": 0.2, "filter": {"user_id": self.user_id}},
         )
-        return self.pdfsearch, self.pdf_retriever
+        return self.pdf_retriever
