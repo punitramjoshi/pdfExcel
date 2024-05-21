@@ -48,6 +48,7 @@ class RAG:
         return self.rag_chain.invoke(query)
     
     def generate_response(self,openai_api_key, query_text, chat_history):
+        print(chat_history)
         print("Inner API Key--------------",openai_api_key)
         print(openai_api_key)
         # Set up history-aware retriever

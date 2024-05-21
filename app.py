@@ -38,7 +38,7 @@ if uploaded_file and api_key:
                 user_id=user_id, file_path="uploaded_file.pdf", api_key=api_key
             )
             delete_button = st.button("Delete Database (if existing)")
-
+            clear_chat_history = st.button("Clear Chat")
             for message in st.session_state.messages:
                 with st.chat_message(message["role"]):
                     st.markdown(message["content"])
@@ -47,6 +47,9 @@ if uploaded_file and api_key:
             if delete_button:
                 rag_chain.delete_db()
                 st.success("Database entries deleted for user ID: " + user_id)
+            
+            if clear_chat_history:
+                chat_history = []
 
             if prompt := st.chat_input("What is up?"):
                 st.session_state.messages.append({"role": "user", "content": prompt})
