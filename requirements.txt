@@ -2,6 +2,7 @@ pypdf
 pandas
 PyPDF2
 tabulate
+pysqlite3-binary
 chromadb
 openpyxl
 streamlit
