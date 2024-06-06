@@ -1,21 +1,15 @@
-from langchain_text_splitters import RecursiveCharacterTextSplitter
+from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_community.document_loaders.pdf import PyPDFLoader
 from langchain_openai import OpenAIEmbeddings
 from langchain_community.vectorstores.chroma import Chroma
 from langchain_core.documents import Document
 import os
-__import__('pysqlite3')
-import sys
-sys.modules['sqlite3'] = sys.modules.pop('pysqlite3')
 
 
 class DocLoader:
-    def __init__(
-        self, user_id, api_key: str, file_path: str, persist_dir="./chromadb"
-    ) -> None:
+    def __init__(self, user_id, api_key, file_path, persist_dir="./chromadb") -> None:
         self.user_id = user_id
         self.file_path = file_path
-        # self.file_dir = os.path.join(data_dir, self.user_id)
         self.embeddings = OpenAIEmbeddings(api_key=api_key)
         self.text_splitter = RecursiveCharacterTextSplitter(
             chunk_size=1000,
@@ -27,7 +21,7 @@ class DocLoader:
                 ".",
                 ",",
                 "",
-            ]
+            ],
         )
         try:
             if os.path.exists(persist_dir):
@@ -43,10 +37,9 @@ class DocLoader:
             raise ValueError(f"Error during data ingestion: {e}") from e
 
     def ingest_pdf(self):
+        self.delete_db(user_id=self.user_id)
         self.document_list: list[Document] = list()
-        # self.file_path = os.path.join(
-        #     "./data", self.user_id, os.listdir(os.path.join("./data", self.user_id))[0]
-        # )
+        print(self.file_path)
         if ".pdf" in self.file_path:
             self.loader = PyPDFLoader(self.file_path)
         self.document_list.extend(
@@ -61,14 +54,9 @@ class DocLoader:
             persist_directory=self.persist_directory,
         )
 
-    def delete_db(self):
-        self.pdfsearch._collection.delete(where={"user_id": self.user_id})
-        os.remove(self.file_path)
+    def delete_db(self, user_id):
+        self.pdfsearch: Chroma = Chroma(persist_directory="./chromadb")
+        self.pdfsearch._collection.delete(where={"user_id": user_id})
 
     def __call__(self):
         self.ingest_pdf()
-        self.pdf_retriever = self.pdfsearch.as_retriever(
-            search_type="similarity_score_threshold",
-            search_kwargs={"score_threshold": 0.2, "filter": {"user_id": self.user_id}},
-        )
-        return self.pdf_retriever
