@@ -15,7 +15,7 @@ langchain.debug=True
 load_dotenv()
 
 st.title("Chatbot with Document Upload and Retrieval")
-api_key = "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"
+api_key = st.text_input("OpenAI API Key:-", key="api_key")
 
 if "messages" not in st.session_state:
     st.session_state.messages = []
