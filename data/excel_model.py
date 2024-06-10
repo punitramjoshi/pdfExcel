@@ -6,6 +6,7 @@ from langchain_openai import ChatOpenAI
 from dotenv import load_dotenv
 import langchain
 from typing import Union
+from langchain.agents.agent_types import AgentType
 
 load_dotenv()
 
@@ -19,11 +20,7 @@ class ExcelBot:
         self.df: pd.DataFrame = self.load_excel_skip_empty_rows(
             file_path, sheet_name=sheet
         )
-        self.refine_llm = ChatOpenAI(model="gpt-4o", temperature=0.01, api_key=api_key)
-        self.chat_llm = ChatOpenAI(model="gpt-4o", temperature=0.3, api_key=api_key)
-        self.llm_with_tools = self.chat_llm.bind_tools(
-            [self.generate_pandas_code, self.execute_pandas_code]
-        )
+        self.llm = ChatOpenAI(model="gpt-4o", temperature=0, api_key=api_key)
         self.column_value_pairs, self.column_list, self.sample_data = (
             self.create_metadata()
         )
@@ -48,6 +45,7 @@ class ExcelBot:
     - Relevant columns to consider.
     - Any filters or conditions based on the unique values.
     - The type of information or analysis the user is seeking.
+    - Convert the US state names given in the query into the corresponding zip codes, if the data is containing zip codes.
 
     #### Output Format:
     Your response should be a refined query in a structured format that can be directly used by the next component to retrieve or analyze the data. The format should be clear and unambiguous.
@@ -113,25 +111,8 @@ class ExcelBot:
 
     def refine_query(self, query):
         prompted_query = self.prompt_template + query + "#### Refined Query:"
-        self.refined_query = self.refine_llm.invoke(prompted_query)
+        self.refined_query = self.llm.invoke(prompted_query)
         return self.refined_query.content
-
-    # Function to generate pandas code
-    def generate_pandas_code(self, query: str) -> str:
-        """Generate pandas code based on the query."""
-        # Implement logic to generate pandas code here
-        # For demonstration purposes, return a simple code snippet
-        return f"result = df.head()  # Generated code for query: {query}"
-
-    # Function to execute pandas code
-    def execute_pandas_code(self, code: str) -> str:
-        """Execute the given pandas code and return the result."""
-        try:
-            exec_locals = {"df": self.df}
-            exec(code, {}, exec_locals)
-            return exec_locals.get("result", "Code executed successfully")
-        except Exception as e:
-            return str(e)
 
     def is_query_valid(self, refined_query: str) -> bool:
         # Check if the refined query references columns in the DataFrame
@@ -148,20 +129,17 @@ class ExcelBot:
         # Check if the refined query is valid
         if not self.is_query_valid(refined_query):
             return "I don't know the answer to that question."
-
-        MODIFIED_PREFIX = """
-        You are working with a pandas dataframe in Python. The name of the dataframe is `df`. You will be given the first five rows of the dataframe for reference. Do not include the sample data in the output code."""
-
-        FUNCTIONS_WITH_DF="""
-        This is the result of `print(df.head())`:
-        {df_head}"""
+        
+        PREFIX = """
+        You are working with a pandas dataframe in Python. The name of the dataframe is `df`. Do not include any type of sample data in the output. Remember, the final output should include answer in natural language, not a Python code.
+        """
         agent = create_pandas_dataframe_agent(
-            llm=self.llm_with_tools,
+            llm=self.llm,
             df=self.df,
-            agent_type="tool-calling",
+            agent_type=AgentType.OPENAI_FUNCTIONS,
             include_df_in_prompt=True,
-            prefix=MODIFIED_PREFIX,
-            suffix=FUNCTIONS_WITH_DF
+            prefix=PREFIX,
+            agent_executor_kwargs={"handle_parsing_errors": True}
         )
 
         # Generate reasoning steps and action (pandas code) iteratively

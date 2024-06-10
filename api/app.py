@@ -14,7 +14,7 @@ langchain.debug=True
 
 load_dotenv()
 
-st.title("Chatbot with Document Upload and Retrieval")
+st.title("Chat with Excel and PDF")
 api_key = st.text_input("OpenAI API Key:-", key="api_key")
 
 if "messages" not in st.session_state:
@@ -78,14 +78,19 @@ if uploaded_file and api_key:
         with open("uploaded_file.xlsx", "wb") as f:
             f.write(uploaded_file.getbuffer())
         excelbot = ExcelBot(file_path="uploaded_file.xlsx", api_key=api_key, sheet=0)
-        df = pd.read_excel(uploaded_file)
-        st.write("DataFrame Preview:")
-        st.write(df.head())
+
+        sheet_name = st.text_input("Sheet name (e.g., Master_Sheet) or Number(e.g., 3)", value=0)
+        try:
+            sheet_name = int(sheet_name)
+        except:
+            pass
+        if sheet_name:
+            df = pd.read_excel(uploaded_file, sheet_name=sheet_name)
+            st.write("DataFrame Preview:")
+            st.write(df.head())
 
         query = st.text_input("Enter your query")
-        sheet_name = st.text_input("Sheet name (e.g., Master_Sheet) or Number(e.g., 3)", value=0)
-
-        if query:
+        if query and sheet_name:
 
             # Process the uploaded file and query
             output = excelbot.excel_invoke(query)
