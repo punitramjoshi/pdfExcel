@@ -89,18 +89,19 @@ if uploaded_file and api_key:
                 st.write(df.head())
                 excelbot = ExcelBot(file_path=temp_file, api_key=api_key)
             else:
-                sheet_name = st.text_input("Sheet name (e.g., Master_Sheet) or Number(e.g., 3)")
-                try:
-                    sheet_name = int(sheet_name)
-                except:
-                    pass
+                sheet_name = st.text_input("Sheet name (e.g., Master_Sheet) or Number(e.g., 3)", value=0)
                 print(sheet_name)
-                if isinstance(sheet_name,(int,str)):
-                    print("Sheet name is ", sheet_name)
-                    df = pd.read_excel(uploaded_file, sheet_name=sheet_name)
+                if sheet_name:
+                    try:
+                        sheet_name = int(sheet_name)
+                    except:
+                        pass
+                    # df = pd.read_excel(uploaded_file, sheet_name=sheet_name)
+                    # st.write(df.head())
+                    print("Sheet name is ", sheet_name, "Sheet name type is ", type(sheet_name))
+                    excelbot = ExcelBot(file_path=temp_file, api_key=api_key, sheet_name=sheet_name)
                     st.write("DataFrame Preview:")
-                    st.write(df.head())
-                    excelbot = ExcelBot(file_path=temp_file, api_key=api_key, sheet=sheet_name)
+                    st.write(excelbot.clean_df.head())
 
             query = st.text_input("Enter your query")
             if query:

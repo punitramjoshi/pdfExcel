@@ -7,6 +7,11 @@ from dotenv import load_dotenv
 import langchain
 from typing import Union
 from langchain.agents.agent_types import AgentType
+from pandasai import SmartDataframe
+from pandasai.llm import OpenAI
+from pandasai.helpers.openai_info import get_openai_callback
+import pandas as pd
+import re
 
 load_dotenv()
 
@@ -15,15 +20,15 @@ langchain.debug = True
 
 class ExcelBot:
     def __init__(
-        self, file_path: str, api_key: str, sheet: Union[str, int] = 0
+        self, file_path: str, api_key: str, sheet_name: Union[str, int] = 0
     ) -> None:
-        self.df: pd.DataFrame = self.load_excel_skip_empty_rows(
-            file_path, sheet_name=sheet
-        )
+        self.df:pd.DataFrame = self.load_excel_file(file_path, sheet_name=sheet_name)
+        self.clean_df:pd.DataFrame = self.clean_dataframe_columns(self.df)
         self.llm = ChatOpenAI(model="gpt-4o", temperature=0, api_key=api_key)
         self.column_value_pairs, self.column_list, self.sample_data = (
             self.create_metadata()
         )
+        self.smart_df = SmartDataframe(self.clean_df,config={"llm": self.llm, "conversational": False})
         self.system_prompt = """
     #### Context:
     You are a query refinement system designed to interpret and refine user queries based on data from an Excel file. You will receive:
@@ -80,25 +85,54 @@ class ExcelBot:
         )
         self.prompt_template = "System:\n" + self.system_prompt + self.human_prompt
 
-    def load_excel_skip_empty_rows(
-        self, file_path: str, sheet_name: Union[str, int] = 0
-    ) -> pd.DataFrame:
-        if ".xlsx" in file_path:
-            # Read the Excel file
-            df = pd.read_excel(file_path, sheet_name=sheet_name, header=None)
+    def load_excel_file(self, file_path: str, sheet_name: Union[str, int] = 0) -> pd.DataFrame:
+        # Load the file to inspect the first few rows
+        if ".csv" in file_path:
+            temp_df = pd.read_csv(file_path, header=None)
+        else:
+            temp_df = pd.read_excel(file_path, sheet_name=sheet_name, header=None)
         
-        elif ".csv" in file_path:
-            df = pd.read_csv(file_path, header=None)
-
         # Drop initial empty rows
+        temp_df = temp_df.dropna(how="all").reset_index(drop=True)
+
+        # Check if the first two rows contain strings to determine if it has a multi-level header
+        if len(temp_df) > 1:
+            first_row_is_str = all(isinstance(i, str) or pd.isna(i) for i in temp_df.iloc[0])
+            second_row_is_str = all(isinstance(i, str) or pd.isna(i) for i in temp_df.iloc[1])
+        else:
+            first_row_is_str = False
+            second_row_is_str = False
+        
+        if first_row_is_str and second_row_is_str:
+            print("first,secondrow")
+            if ".csv" in file_path:
+                df = pd.read_csv(file_path, header=[0, 1])
+            else:
+                # If the first two rows are strings (or NaNs in the first row), it's a multi-level header
+                df = pd.read_excel(file_path, sheet_name=sheet_name, header=[0, 1])
+            # Flatten the multi-level column headers into a single level
+            df.columns = [f"{str(col[0])} {col[1]}".strip() if pd.notna(col[0]) else col[1] for col in df.columns.values]
+        else:
+            # If not, use the first row as the header
+            df = pd.read_excel(file_path, sheet_name=sheet_name, header=0)
+
+        # Drop initial empty rows (redundant if already done above, but keeping for completeness)
         df = df.dropna(how="all").reset_index(drop=True)
 
-        # Set the new column names
-        df.columns = df.iloc[0]
+        return df
 
-        # Drop the row used for column names
-        df = df[1:].reset_index(drop=True)
-
+    def clean_dataframe_columns(self,df:pd.DataFrame) -> pd.DataFrame:
+        def clean_column_name(col):
+            # Use regex to remove 'Unnamed: ..._level_...' patterns
+            cleaned_col = re.sub(r'Unnamed: \d+_level_\d+', '', col).strip()
+            return cleaned_col if cleaned_col else 'Unnamed'
+        
+        # Apply the cleaning function to each column name
+        cleaned_columns = [clean_column_name(col) for col in df.columns]
+        
+        # Rename the columns in the DataFrame
+        df.columns = cleaned_columns
+        
         return df
 
     def create_metadata(self):
@@ -106,12 +140,12 @@ class ExcelBot:
         column_value_pairs = {}
 
         # Iterate through each column in the DataFrame
-        for column in self.df.columns:
-            unique_values = self.df[column].nunique()
+        for column in self.clean_df.columns:
+            unique_values = self.clean_df[column].nunique()
             if unique_values <= 15:
-                column_value_pairs[column] = self.df[column].unique().tolist()
+                column_value_pairs[column] = self.clean_df[column].unique().tolist()
 
-        return str(column_value_pairs), str(list(self.df.columns)), str(self.df.head())
+        return str(column_value_pairs), str(list(self.clean_df.columns)), str(self.clean_df.head())
 
     def refine_query(self, query):
         prompted_query = self.prompt_template + query + "#### Refined Query:"
@@ -120,32 +154,44 @@ class ExcelBot:
 
     def is_query_valid(self, refined_query: str) -> bool:
         # Check if the refined query references columns in the DataFrame
-        for column in self.df.columns:
-            if column in refined_query:
+        for column in self.clean_df.columns:
+            if column.strip() in refined_query:
                 return True
         return False
 
-    def excel_invoke(self, query: str):
-        # Create the agent using the ReAct technique
+    def excel_invoke(self, query:str):
         refined_query = self.refine_query(query)
-        print(refined_query)
-
-        # Check if the refined query is valid
-        if not self.is_query_valid(refined_query):
-            return "I don't know the answer to that question."
+        print('inexcelinvoke')
+        # result = self.is_query_valid(refined_query)
         
-        PREFIX = """
-        You are working with a pandas dataframe in Python. The name of the dataframe is `df`. Do not include any type of sample data in the output. Remember, the final output should include answer in natural language, not a Python code.
-        """
-        agent = create_pandas_dataframe_agent(
-            llm=self.llm,
-            df=self.df,
-            agent_type=AgentType.OPENAI_FUNCTIONS,
-            include_df_in_prompt=True,
-            prefix=PREFIX,
-            agent_executor_kwargs={"handle_parsing_errors": True}
-        )
+        # if not result:
+        #     return "I don't know the answer to that question."
+        response = self.smart_df.chat(refined_query)
+        print(response)
+        return response
+    # def excel_invoke(self, query: str):
+    #     # Create the agent using the ReAct technique
+    #     refined_query = self.refine_query(query)
+    #     print(refined_query)
 
-        # Generate reasoning steps and action (pandas code) iteratively
-        response = agent.invoke({"input": refined_query})
-        return response["output"]
+    #     result = self.is_query_valid(refined_query)
+    #     print("This is the resut",result)
+    #     # Check if the refined query is valid
+    #     if not result:
+    #         return "I don't know the answer to that question."
+        
+    #     PREFIX = """
+    #     You are working with a pandas dataframe in Python. The name of the dataframe is `df`. Remember, the final output should include answer in natural language, not a Python code.
+    #     """
+    #     agent = create_pandas_dataframe_agent(
+    #         llm=self.llm,
+    #         df=self.df,
+    #         agent_type=AgentType.OPENAI_FUNCTIONS,
+    #         include_df_in_prompt=True,
+    #         prefix=PREFIX,
+    #         agent_executor_kwargs={"handle_parsing_errors": True}
+    #     )
+
+    #     # Generate reasoning steps and action (pandas code) iteratively
+    #     response = agent.invoke({"input": refined_query})
+    #     return response["output"]
