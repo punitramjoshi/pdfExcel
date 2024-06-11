@@ -84,6 +84,9 @@ if uploaded_file and api_key:
                 f.write(uploaded_file.getbuffer())
 
             if ".csv" in temp_file:
+                df = pd.read_csv(uploaded_file)
+                st.write("DataFrame Preview:")
+                st.write(df.head())
                 excelbot = ExcelBot(file_path=temp_file, api_key=api_key)
             else:
                 sheet_name = st.text_input("Sheet name (e.g., Master_Sheet) or Number(e.g., 3)")
