@@ -12,7 +12,6 @@ langchainhub==0.1.15
 langdetect==1.0.9
 langsmith==0.1.26
 openpyxl==3.1.2
-pandas==2.2.2
 pypdf==4.2.0
 PyPDF2==3.0.1
 python-docx==1.1.0
