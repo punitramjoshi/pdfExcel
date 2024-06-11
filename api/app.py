@@ -35,74 +35,81 @@ if uploaded_file and api_key:
     except:
         pass
     # Checking file type based on MIME type
+    try:
+        if uploaded_file.type == "application/pdf":
+            rag_model = RAG(api_key)
+            user_id = st.text_input("Enter User ID:", key="user_id")
+            if user_id:
+                with open("uploaded_file.pdf", "wb") as f:
+                    f.write(uploaded_file.getbuffer())
 
-    if uploaded_file.type == "application/pdf":
-        rag_model = RAG(api_key)
-        user_id = st.text_input("Enter User ID:", key="user_id")
-        if user_id:
-            with open("uploaded_file.pdf", "wb") as f:
+                rag_model.load_db("uploaded_file.pdf", user_id)
+                st.success("Database loaded successfully!")
+                delete_button = st.button("Delete Database (if existing)")
+                clear_chat_history = st.button("Clear Chat")
+
+                if delete_button:
+                    rag_model.delete_db(user_id)
+                    st.success("Database deleted successfully!")
+
+                for message in st.session_state.messages:
+                    with st.chat_message(message["role"]):
+                        st.markdown(message["content"])
+
+                if clear_chat_history:
+                    st.session_state.messages = []
+
+                if prompt := st.chat_input("What is up?"):
+                    st.session_state.messages.append({"role": "user", "content": prompt})
+                    with st.chat_message("user"):
+                        st.markdown(prompt)
+
+                    with st.chat_message("assistant"):
+                        answer = rag_model.invoke(user_id=user_id, query=prompt)
+                        st.markdown(answer)
+                        st.session_state.messages.append(
+                            {"role": "assistant", "content": answer}
+                        )
+
+        elif uploaded_file.type in [
+            "application/vnd.ms-excel",
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            "text/csv"
+        ]:
+            if uploaded_file.type=="text/csv":
+                temp_file = "uploaded_file.csv"
+            else:
+                temp_file = "uploaded_file.xlsx"
+            with open(temp_file, "wb") as f:
                 f.write(uploaded_file.getbuffer())
 
-            rag_model.load_db("uploaded_file.pdf", user_id)
-            st.success("Database loaded successfully!")
-            delete_button = st.button("Delete Database (if existing)")
-            clear_chat_history = st.button("Clear Chat")
+            if ".csv" in temp_file:
+                excelbot = ExcelBot(file_path=temp_file, api_key=api_key)
+            else:
+                sheet_name = st.text_input("Sheet name (e.g., Master_Sheet) or Number(e.g., 3)")
+                try:
+                    sheet_name = int(sheet_name)
+                except:
+                    pass
+                print(sheet_name)
+                if isinstance(sheet_name,(int,str)):
+                    print("Sheet name is ", sheet_name)
+                    df = pd.read_excel(uploaded_file, sheet_name=sheet_name)
+                    st.write("DataFrame Preview:")
+                    st.write(df.head())
+                    excelbot = ExcelBot(file_path=temp_file, api_key=api_key, sheet=sheet_name)
 
-            if delete_button:
-                rag_model.delete_db(user_id)
-                st.success("Database deleted successfully!")
+            query = st.text_input("Enter your query")
+            if query:
 
-            for message in st.session_state.messages:
-                with st.chat_message(message["role"]):
-                    st.markdown(message["content"])
+                # Process the uploaded file and query
+                output = excelbot.excel_invoke(query)
 
-            if clear_chat_history:
-                st.session_state.messages = []
+                # Display the result
+                st.write("Query Result:")
+                st.write(output)
 
-            if prompt := st.chat_input("What is up?"):
-                st.session_state.messages.append({"role": "user", "content": prompt})
-                with st.chat_message("user"):
-                    st.markdown(prompt)
-
-                with st.chat_message("assistant"):
-                    answer = rag_model.invoke(user_id=user_id, query=prompt)
-                    st.markdown(answer)
-                    st.session_state.messages.append(
-                        {"role": "assistant", "content": answer}
-                    )
-
-    elif uploaded_file.type in [
-        "application/vnd.ms-excel",
-        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        "application/csv"
-    ]:
-        if uploaded_file.type=="application/csv":
-            temp_file = "uploaded_file.csv"
         else:
-            temp_file = "uploaded_file.xlsx"
-        with open("uploaded_file.xlsx", "wb") as f:
-            f.write(uploaded_file.getbuffer())
-        excelbot = ExcelBot(file_path=temp_file, api_key=api_key, sheet=0)
-
-        sheet_name = st.text_input("Sheet name (e.g., Master_Sheet) or Number(e.g., 3)", value=0)
-        try:
-            sheet_name = int(sheet_name)
-        except:
-            pass
-        if sheet_name:
-            df = pd.read_excel(uploaded_file, sheet_name=sheet_name)
-            st.write("DataFrame Preview:")
-            st.write(df.head())
-
-        query = st.text_input("Enter your query")
-        if query and sheet_name:
-
-            # Process the uploaded file and query
-            output = excelbot.excel_invoke(query)
-
-            # Display the result
-            st.write("Query Result:")
-            st.write(output)
-
-    else:
-        st.write("The uploaded file is neither a PDF nor an Excel file.")
+            st.write("The uploaded file is neither a PDF nor an Excel file.")
+    except Exception as e:
+        st.write(e)
