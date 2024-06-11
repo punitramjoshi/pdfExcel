@@ -22,7 +22,7 @@ if "messages" not in st.session_state:
 
 
 uploaded_file = st.file_uploader(
-    "Upload an Excel/PDF file", type=["xlsx", "xls", "pdf"]
+    "Upload an Excel/CSV/PDF file", type=["xlsx", "xls", "pdf", "csv"]
 )
 
 if uploaded_file and api_key:
