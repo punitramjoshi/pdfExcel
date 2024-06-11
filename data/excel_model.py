@@ -83,8 +83,12 @@ class ExcelBot:
     def load_excel_skip_empty_rows(
         self, file_path: str, sheet_name: Union[str, int] = 0
     ) -> pd.DataFrame:
-        # Read the Excel file
-        df = pd.read_excel(file_path, sheet_name=sheet_name, header=None)
+        if ".xlsx" in file_path:
+            # Read the Excel file
+            df = pd.read_excel(file_path, sheet_name=sheet_name, header=None)
+        
+        elif ".csv" in file_path:
+            df = pd.read_csv(file_path, header=None)
 
         # Drop initial empty rows
         df = df.dropna(how="all").reset_index(drop=True)
