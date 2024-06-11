@@ -74,10 +74,15 @@ if uploaded_file and api_key:
     elif uploaded_file.type in [
         "application/vnd.ms-excel",
         "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        "application/csv"
     ]:
+        if uploaded_file.type=="application/csv":
+            temp_file = "uploaded_file.csv"
+        else:
+            temp_file = "uploaded_file.xlsx"
         with open("uploaded_file.xlsx", "wb") as f:
             f.write(uploaded_file.getbuffer())
-        excelbot = ExcelBot(file_path="uploaded_file.xlsx", api_key=api_key, sheet=0)
+        excelbot = ExcelBot(file_path=temp_file, api_key=api_key, sheet=0)
 
         sheet_name = st.text_input("Sheet name (e.g., Master_Sheet) or Number(e.g., 3)", value=0)
         try:
